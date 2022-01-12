@@ -179,6 +179,10 @@ module _ {ty : Type ℓ} where
     𝑠𝑣 v
       ∎
 
+  ∘𝑅𝑒𝑛IdR : {Γ Δ : ctx} (σ : ren Γ Δ) → σ ∘𝑅𝑒𝑛 id𝑅𝑒𝑛 Γ ≡ σ
+  ∘𝑅𝑒𝑛IdR ! = refl
+  ∘𝑅𝑒𝑛IdR (σ ⊕ v) i = ∘𝑅𝑒𝑛IdR σ i ⊕ [id]𝑅𝑒𝑛 v i
+
 tr𝑉𝑎𝑟 : {ty₁ : Type ℓ₁} {ty₂ : Type ℓ₂} (f : ty₁ → ty₂) {Γ : 𝐶𝑡𝑥 ty₁} {A : ty₁}
   → 𝑉𝑎𝑟 ty₁ Γ A → 𝑉𝑎𝑟 ty₂ (map𝐶𝑡𝑥 f Γ) (f A)
 tr𝑉𝑎𝑟 f 𝑧𝑣 = 𝑧𝑣

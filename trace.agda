@@ -102,6 +102,10 @@ data ParallelSteps : {Γ Δ : Ctx} (σ τ : Tms Γ Δ) → Type where
   _⊕𝑆_ : {Γ Δ : Ctx} {A : Ty} {σ τ : Tms Γ Δ} {t s : Tm Γ A} →
     ParallelSteps σ τ → Steps t s → ParallelSteps (σ ⊕ t) (τ ⊕ s)
 
+idParallel : {Γ Δ : Ctx} (σ : Tms Γ Δ) → ParallelSteps σ σ
+idParallel ! = ∅𝑆
+idParallel (σ ⊕ t) = idParallel σ ⊕𝑆 []
+
 parallel-derive : {Γ Δ : Ctx} {A : Ty} {σ τ : Tms Γ Δ} →
   ParallelSteps σ τ → (v : Var Δ A) → Steps (derive σ v) (derive τ v)
 parallel-derive (𝑆s ⊕𝑆 𝒮s) 𝑧𝑣 = 𝒮s
