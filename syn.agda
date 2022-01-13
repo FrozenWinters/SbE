@@ -4,6 +4,7 @@ module syn where
 
 open import lists
 
+infixr 20 _⇒_
 data Ty : Type where
   Base : Char → Ty
   _⇒_ : Ty → Ty → Ty
@@ -190,6 +191,29 @@ shift[] 𝑖 (Lam {Γ} {A} t) σ =
     ∎
 shift[] 𝑖 (App t s) σ i =
   App (shift[] 𝑖 t σ i) (shift[] 𝑖 s σ i)
+
+Vlem0 : {Γ Δ : Ctx} {A : Ty} (v : Var Δ A) (σ : Ren Γ Δ) →
+  V (v [ σ ]𝑅) ≡ (V v) [ varify σ ]
+Vlem0 𝑧𝑣 (σ ⊕ w) = refl
+Vlem0 (𝑠𝑣 v) (σ ⊕ w) = Vlem0 v σ
+
+Vlem1 : {Γ Δ Σ : Ctx} (σ : Ren Δ Σ) (τ : Ren Γ Δ) →
+  varify (σ ∘𝑅𝑒𝑛 τ) ≡ varify σ ∘Tms varify τ
+Vlem1 ! τ = refl
+Vlem1 (σ ⊕ t) τ i = Vlem1 σ τ i ⊕ Vlem0 t τ i 
+
+Vlem2 : {Γ Δ : Ctx} {A : Ty} (σ : Ren Γ Δ) →
+  varify (W₁𝑅𝑒𝑛 A σ) ≡ W₁Tms A (varify σ)
+Vlem2 ! = refl
+Vlem2 (σ ⊕ v) i = Vlem2 σ i ⊕ V (𝑠𝑣 v)
+
+Vlem2' : {Γ Δ : Ctx} (𝑖 : CtxPos Γ) {A : Ty} (σ : Ren Γ Δ) →
+  varify (shiftRen 𝑖 {A} σ) ≡ shiftTms 𝑖 (varify σ)
+Vlem2' 𝑖 ! = refl
+Vlem2' 𝑖 (σ ⊕ v) i = Vlem2' 𝑖 σ i ⊕ V (shiftVar 𝑖 v)
+
+Vlem3 : {Γ : Ctx} {A : Ty} → W₂Tms A (idTms Γ) ≡ idTms (Γ ⊹ A)
+Vlem3 {Γ} i = Vlem2 (id𝑅𝑒𝑛 Γ) (~ i) ⊕ V 𝑧𝑣
     
 Wlem0 : {Γ Δ : Ctx} {A B : Ty} (t : Tm Δ B) (σ : Tms Γ Δ) (s : Tm Γ A) →
   W₁Tm A t [ σ ⊕ s ] ≡ t [ σ ]
@@ -235,29 +259,6 @@ Wlem4 σ τ i = Wlem3 σ τ i ⊕ 𝑧
   Lam (t [ W₂Tms A (σ ∘Tms τ) ])
     ∎
 [][] (App t s) σ τ i = App ([][] t σ τ i) ([][] s σ τ i)
-
-Vlem0 : {Γ Δ : Ctx} {A : Ty} (v : Var Δ A) (σ : Ren Γ Δ) →
-  V (v [ σ ]𝑅) ≡ (V v) [ varify σ ]
-Vlem0 𝑧𝑣 (σ ⊕ w) = refl
-Vlem0 (𝑠𝑣 v) (σ ⊕ w) = Vlem0 v σ
-
-Vlem1 : {Γ Δ Σ : Ctx} (σ : Ren Δ Σ) (τ : Ren Γ Δ) →
-  varify (σ ∘𝑅𝑒𝑛 τ) ≡ varify σ ∘Tms varify τ
-Vlem1 ! τ = refl
-Vlem1 (σ ⊕ t) τ i = Vlem1 σ τ i ⊕ Vlem0 t τ i 
-
-Vlem2 : {Γ Δ : Ctx} {A : Ty} (σ : Ren Γ Δ) →
-  varify (W₁𝑅𝑒𝑛 A σ) ≡ W₁Tms A (varify σ)
-Vlem2 ! = refl
-Vlem2 (σ ⊕ v) i = Vlem2 σ i ⊕ V (𝑠𝑣 v)
-
-Vlem2' : {Γ Δ : Ctx} (𝑖 : CtxPos Γ) {A : Ty} (σ : Ren Γ Δ) →
-  varify (shiftRen 𝑖 {A} σ) ≡ shiftTms 𝑖 (varify σ)
-Vlem2' 𝑖 ! = refl
-Vlem2' 𝑖 (σ ⊕ v) i = Vlem2' 𝑖 σ i ⊕ V (shiftVar 𝑖 v)
-
-Vlem3 : {Γ : Ctx} {A : Ty} → W₂Tms A (idTms Γ) ≡ idTms (Γ ⊹ A)
-Vlem3 {Γ} i = Vlem2 (id𝑅𝑒𝑛 Γ) (~ i) ⊕ V 𝑧𝑣
 
 deriveW₁Ren : {Γ Δ : Ctx} {A B : Ty} (σ : Ren Γ Δ) (v : Var Δ B) →
   derive (varify (W₁𝑅𝑒𝑛 A σ)) v ≡ W₁Tm A (derive (varify σ) v)
@@ -305,6 +306,18 @@ Wlem1Varify {A = A} (σ ⊕ v) τ t i = Wlem1Varify σ τ t i ⊕ V v [ τ ]
   varify (id𝑅𝑒𝑛 Δ) ∘Tms σ ⊕ t
     ≡⟨ ap (_⊕ t) (∘TmsIdL σ) ⟩
   σ ⊕ t
+    ∎
+
+Wlem5 : {Γ Δ : Ctx} {A : Ty} (σ : Tms Γ Δ) →
+  σ ∘Tms π ≡ W₁Tms A σ
+Wlem5 {Γ} {Δ} {A} σ =
+  σ ∘Tms π
+    ≡⟨ ap (σ ∘Tms_) (Vlem2 (id𝑅𝑒𝑛 Γ)) ⟩
+  σ ∘Tms W₁Tms A (idTms Γ)
+    ≡⟨ Wlem2 σ (idTms Γ) ⟩
+  W₁Tms A (σ ∘Tms idTms Γ)
+    ≡⟨ ap (W₁Tms A) (∘TmsIdR σ) ⟩
+  W₁Tms A σ
     ∎
 
 idInsertLem : (Γ : Ctx) (A : Ty) (𝑖 : CtxPos Γ) →

@@ -100,3 +100,8 @@ NS [ σ ]NFS = map𝑇𝑚𝑠 _[ σ ]NF NS
     ≡⟨ (λ i → Lam (ιNf N [ Vlem2 σ i ⊕ V 𝑧𝑣 ])) ⟩
   Lam (ιNf N [ W₂Tms A (varify σ) ])
     ∎
+
+ιNfsLem : {Γ Δ Σ : Ctx} (NS : Nfs Δ Σ) (σ : Ren Γ Δ) →
+  ιNfs (NS [ σ ]NFS) ≡ ιNfs NS ∘Tms (varify σ)
+ιNfsLem ! σ = refl
+ιNfsLem (NS ⊕ N) σ i = ιNfsLem NS σ i ⊕ ιNfLem N σ i
