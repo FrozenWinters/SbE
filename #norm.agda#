@@ -309,7 +309,7 @@ eval-⦇α⦈-safe {Γ} (App t s) 𝓈s =
 eval-nat (V v) 𝓈s =
   [] ∷ sub⟨ (deriveMap ιNf (qs (forget 𝓈s)) v ∙ ap ιNf (deriveMap q (forget 𝓈s) v)) ⁻¹ ⟩
 eval-nat {Γ} {A ⇒ B} (Lam t) {Δ} 𝓈s =
-  {![] ∷
+  [] ∷
     sub⟨
       (λ i → Lam (ιNf (q (eval-⦇α⦈ t (forget[]𝐸𝑙𝑠 𝓈s (W₁𝑅𝑒𝑛 A (id𝑅𝑒𝑛 Δ)) (~ i) ⊕ u (VN 𝑧𝑣)))))) ⟩
     ⊙ deepens (𝐿 𝑂) (eval-nat t (𝓈s [ W₁𝑅𝑒𝑛 A (id𝑅𝑒𝑛 Δ) ]𝐸𝑙𝑠-S ⊕ (u (VN 𝑧𝑣) , u-safe (VN 𝑧𝑣) )))
@@ -325,7 +325,7 @@ eval-nat {Γ} {A ⇒ B} (Lam t) {Δ} 𝓈s =
       Lam (t [ ιNfs (qs (forget 𝓈s)) ∘Tms π ⊕ 𝑧 ])
         ≡⟨ (λ i → Lam (t [ Wlem5 (ιNfs (qs (forget 𝓈s))) i ⊕ 𝑧 ])) ⟩
       Lam (t [ W₂Tms A (ιNfs (qs (forget 𝓈s))) ])
-        ∎ ⟩!}
+        ∎ ⟩
 eval-nat (App t s) 𝓈s =
   fst (eval-⦇α⦈-safe t 𝓈s (id𝑅𝑒𝑛 _) (eval-⦇α⦈ s (forget 𝓈s) , eval-⦇α⦈-safe s 𝓈s))
     ∷ sub⟨ (λ i → (App (ιNf ([id]NF (q (eval-⦇α⦈ t (forget 𝓈s))) i))
