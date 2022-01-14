@@ -11,6 +11,7 @@ data Rule : {Γ : Ctx} {A : Ty} (t s : Tm Γ A) → Type where
   η : {Γ : Ctx} {A B : Ty} (t : Tm Γ (A ⇒ B)) →
     Rule t (Lam (App (t [ π ]) 𝑧))
 
+--TODO spellcheck Occurrence
 data Occurance : (Γ : Ctx) (A : Ty) → Type where
  𝑂 : {Γ : Ctx} {A : Ty} → Occurance Γ A
  𝐿 : {Γ : Ctx} {A B : Ty} → Occurance (Γ ⊹ A) B → Occurance Γ (A ⇒ B)
