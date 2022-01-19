@@ -1,43 +1,180 @@
-{-# OPTIONS --cubical #-}
-
 module norm where
 
-open import Cubical.Data.Sigma
-open import Cubical.Data.Nat renaming (zero to Z; suc to S)
+open import Data.Product renaming (proj₁ to fst; proj₂ to snd) public
 
 open import lists
 open import syn
 open import normal
 open import trace
 
-data ⊤ : Type where
+data ⊤ : Type lzero where
   tt : ⊤
 
-Element : Ctx → Ty → Set
-_[_]𝐸𝑙 : {Γ Δ : Ctx} {A : Ty} → Element Δ A → Ren Γ Δ → Element Γ A
-
--- ob sets of semantic presheaf
-
-{-# NO_POSITIVITY_CHECK #-}
-record Element⇒ (Γ : Ctx) (A B : Ty) : Type where
-  inductive
-  pattern
-  constructor nat
-  field
-    ob : {Δ : Ctx} → Ren Δ Γ → Element Δ A → Element Δ B
-    hom : {Δ Σ : Ctx} (σ : Ren Δ Σ) (τ : Ren Σ Γ) (𝓈 : Element Σ A) →
-      (ob τ 𝓈 [ σ ]𝐸𝑙 ≡ ob (τ ∘𝑅𝑒𝑛 σ) (𝓈 [ σ ]𝐸𝑙))
-      
+Element : Ctx → Ty → Type lzero
 Element Γ (Base X) = Nf Γ (Base X)
-Element Γ (A ⇒ B) = Element⇒ Γ A B
-
-open Element⇒
-
-postulate
-  ≡Element⇒ : {Γ : Ctx} {A B : Ty} {𝒻 ℊ : Element⇒ Γ A B} →
-    Path ({Δ : Ctx} → Ren Δ Γ → Element Δ A → Element Δ B) (ob 𝒻) (ob ℊ) → 𝒻 ≡ ℊ
+Element Γ (A ⇒ B) = {Δ : Ctx} → Ren Δ Γ → Element Δ A → Element Δ B
 
 infix 30 _[_]𝐸𝑙
+_[_]𝐸𝑙 : {Γ Δ : Ctx} {A : Ty} → Element Δ A → Ren Γ Δ → Element Γ A
+_[_]𝐸𝑙 {A = Base x} 𝓈 σ = 𝓈 [ σ ]NF
+_[_]𝐸𝑙 {A = A ⇒ B} 𝒻 σ τ 𝓈 = 𝒻 (σ ∘𝑅𝑒𝑛 τ) 𝓈
+
+q : {Γ : Ctx} {A : Ty} → Element Γ A → Nf Γ A
+u : {Γ : Ctx} {A : Ty} → Ne Γ A → Element Γ A
+
+q {A = Base X} 𝓈 = 𝓈
+q {Γ} {A ⇒ B} 𝒻 = LAM (q (𝒻 (W₁𝑅𝑒𝑛 A (id𝑅𝑒𝑛 Γ)) (u (VN 𝑧𝑣))))
+
+u {A = Base X} M = NEU M
+u {A = A ⇒ B} M σ 𝓈 = u (APP (M [ σ ]NE) (q 𝓈))
+
+cmp : {Γ : Ctx} {A : Ty} (N : Ne Γ A) → Steps (ιNf (q (u N))) (ιNe N)
+cmp {A = Base s} N = []
+cmp {Γ} {A ⇒ B} N =
+  tr (λ t → Steps (Lam (ιNf (q (u (APP (N [ W₁𝑅𝑒𝑛 A (id𝑅𝑒𝑛 Γ) ]NE) (q (u (VN 𝑧𝑣)))))))) t)
+    (Lam (App (ιNe (N [ W₁𝑅𝑒𝑛 A (id𝑅𝑒𝑛 Γ) ]NE)) (V 𝑧𝑣))
+      ≡⟨ ap (λ x → Lam (App x (V 𝑧𝑣))) (ιNeLem N (W₁𝑅𝑒𝑛 A (id𝑅𝑒𝑛 Γ))) ⟩
+    Lam (App (ιNe N [ π ]) (V 𝑧𝑣))
+      ≡⟨ ap (λ x → Lam (App x (V 𝑧𝑣))) (Wlem5 (ιNe N)) ⟩
+    Lam (App (W₁Tm A (ιNe N)) (V 𝑧𝑣))
+      ∎)
+    (deepens (𝐿 𝑂) (cmp (APP (N [ W₁𝑅𝑒𝑛 A (id𝑅𝑒𝑛 Γ) ]NE) (q (u (VN 𝑧𝑣)))))
+      ⊙ deepens (𝐿 (𝐴₂ (ιNe (N [ W₁𝑅𝑒𝑛 A (id𝑅𝑒𝑛 Γ) ]NE)) 𝑂)) (cmp (VN 𝑧𝑣)))
+  ∷ ⟨ 𝑂 ⊚ η (ιNe N) ⟩⁻¹
+
+{-NaturalType : {Γ : Ctx} {A : Ty} (𝓈 : Element Γ A) → Type lzero
+
+NaturalElement : Ctx → Ty → Type lzero
+NaturalElement Γ A = Σ (Element Γ A) NaturalType
+
+NaturalType {Γ} {Base c} 𝓈 = ⊤
+NaturalType {Γ} {A ⇒ B} 𝒻 =
+  {Δ : Ctx} (σ : Ren Δ Γ) (𝓈 : NaturalElement Δ A) →
+    ({Σ : Ctx} (τ : Ren Σ Δ) → 𝒻 σ (fst 𝓈) [ τ ]𝐸𝑙 ≡ 𝒻 (σ ∘𝑅𝑒𝑛 τ) (fst 𝓈 [ τ ]𝐸𝑙))
+    × NaturalType (𝒻 σ (fst 𝓈))-}
+
+_≡𝐸𝑙_ : {Γ : Ctx} {A : Ty} (𝓈 𝓉 : Element Γ A) → Type lzero
+_≡𝐸𝑙_ {Γ} {Base c} N M = N ≡ M
+_≡𝐸𝑙_ {Γ} {A ⇒ B} 𝒻 ℊ = {Δ : Ctx} (σ : Ren Δ Γ) (𝓈 : Element Δ A) → 𝒻 σ 𝓈 ≡ ℊ σ 𝓈
+
+SafeType : {Γ : Ctx} {A : Ty} (𝓈 : Element Γ A) → Type lzero
+
+SafeElement : Ctx → Ty → Type lzero
+SafeElement Γ A = Σ (Element Γ A) SafeType
+
+{-# NO_POSITIVITY_CHECK #-}
+record SafeType⇒ {Γ Δ : Ctx} {A B : Ty} (𝒻 : Element Γ (A ⇒ B)) (σ : Ren Δ Γ) (𝓈 : SafeElement Δ A)
+       : Type lzero where
+  inductive
+  field
+    ext : (𝓉 : SafeElement Δ A) → fst 𝓈 ≡𝐸𝑙 fst 𝓉 → 𝒻 σ (fst 𝓈) ≡ 𝒻 σ (fst 𝓉)
+    hom : {Σ : Ctx} (τ : Ren Σ Δ) → 𝒻 σ (fst 𝓈) [ τ ]𝐸𝑙 ≡𝐸𝑙 𝒻 (σ ∘𝑅𝑒𝑛 τ) (fst 𝓈 [ τ ]𝐸𝑙)
+    nat : Steps (ιNf (q (𝒻 σ (fst 𝓈)))) (App (ιNf (q 𝒻 [ σ ]NF)) (ιNf (q (fst 𝓈))))
+    preserve : SafeType (𝒻 σ (fst 𝓈))
+
+SafeType {Γ} {Base c} 𝓈 = ⊤
+SafeType {Γ} {A ⇒ B} 𝒻 =
+  {Δ : Ctx} (σ : Ren Δ Γ) (𝓈 : SafeElement Δ A) → SafeType⇒ 𝒻 σ 𝓈
+    {-({Σ : Ctx} (τ : Ren Σ Δ) → 𝒻 σ (fst 𝓈) [ τ ]𝐸𝑙 ≡𝐸𝑙 𝒻 (σ ∘𝑅𝑒𝑛 τ) (fst 𝓈 [ τ ]𝐸𝑙))
+    × Steps (ιNf (q (𝒻 σ (fst 𝓈))))
+          (App (ιNf (q 𝒻 [ σ ]NF)) (ιNf (q (fst 𝓈))))
+    × SafeType (𝒻 σ (fst 𝓈))-}
+
+u-hom : {A : Ty} {Γ Δ : Ctx} (σ : Ren Γ Δ) (N : Ne Δ A) →
+  u (N [ σ ]NE) ≡𝐸𝑙 u N [ σ ]𝐸𝑙
+u-hom {Base x} σ N = refl
+u-hom {A ⇒ B} σ N τ 𝓈 = ap (λ x → u (APP x (q 𝓈))) ([][]NE N σ τ)
+
+q-hom : {A : Ty} {Γ Δ : Ctx} (σ : Ren Γ Δ) (𝓈 : SafeElement Δ A) →
+  q (fst 𝓈 [ σ ]𝐸𝑙) ≡ q (fst 𝓈) [ σ ]NF
+q-hom {Base x} σ 𝓈 = refl
+q-hom {A ⇒ B} {Γ} {Δ} σ 𝒻 =
+  {!(u-hom (W₂𝑅𝑒𝑛 A σ) (VN 𝑧𝑣))
+  {-LAM (q (fst 𝒻 (σ ∘𝑅𝑒𝑛 W₁𝑅𝑒𝑛 A (id𝑅𝑒𝑛 Γ)) (u (VN 𝑧𝑣))))
+    ∎-}
+  {-LAM (q (fst 𝒻 (σ ∘𝑅𝑒𝑛 W₁𝑅𝑒𝑛 A (id𝑅𝑒𝑛 Γ)) (u (VN 𝑧𝑣))))
+    ≡⟨ ap (λ x → LAM (q (fst 𝒻 x (u-hom (W₂𝑅𝑒𝑛 A σ) (VN 𝑧𝑣) i)))) lem ⟩
+  LAM (q (fst 𝒻 (W₁𝑅𝑒𝑛 A (id𝑅𝑒𝑛 Δ) ∘𝑅𝑒𝑛 W₂𝑅𝑒𝑛 A σ) (u (VN 𝑧𝑣) [ W₂𝑅𝑒𝑛 A σ ]𝐸𝑙)))
+    ≡⟨ {!(λ i → LAM (q (hom 𝒻 (W₂𝑅𝑒𝑛 A σ) (W₁𝑅𝑒𝑛 A (id𝑅𝑒𝑛 Δ)) (u (VN 𝑧𝑣)) (~ i))))!} ⟩
+  LAM (q (fst 𝒻 (W₁𝑅𝑒𝑛 A (id𝑅𝑒𝑛 Δ)) (u (VN 𝑧𝑣)) [ W₂𝑅𝑒𝑛 A σ ]𝐸𝑙))
+    ≡⟨ ap LAM (q-hom (W₂𝑅𝑒𝑛 A σ)
+      (fst 𝒻 (W₁𝑅𝑒𝑛 A (id𝑅𝑒𝑛 Δ)) (u (VN 𝑧𝑣)) , ?)) ⟩
+  LAM (q (fst 𝒻 (W₁𝑅𝑒𝑛 A (id𝑅𝑒𝑛 Δ)) (u (VN 𝑧𝑣))) [ W₂𝑅𝑒𝑛 A σ ]NF)
+    ∎-}!}
+     where
+    lem : σ ∘𝑅𝑒𝑛 W₁𝑅𝑒𝑛 A (id𝑅𝑒𝑛 Γ) ≡ W₁𝑅𝑒𝑛 A (id𝑅𝑒𝑛 Δ) ∘𝑅𝑒𝑛 (W₂𝑅𝑒𝑛 A σ)
+    lem =
+      σ ∘𝑅𝑒𝑛 W₁𝑅𝑒𝑛 A (id𝑅𝑒𝑛 Γ)
+        ≡⟨ Wlem3𝑅𝑒𝑛 σ (id𝑅𝑒𝑛 Γ) ⟩
+      W₁𝑅𝑒𝑛 A (σ ∘𝑅𝑒𝑛 id𝑅𝑒𝑛 Γ)
+        ≡⟨ ap (W₁𝑅𝑒𝑛 A) (∘𝑅𝑒𝑛IdR σ) ⟩
+      W₁𝑅𝑒𝑛 A σ
+        ≡⟨ ap (W₁𝑅𝑒𝑛 A) (∘𝑅𝑒𝑛IdL σ ⁻¹) ⟩
+      W₁𝑅𝑒𝑛 A (id𝑅𝑒𝑛 Δ ∘𝑅𝑒𝑛 σ)
+        ≡⟨ Wlem5𝑅𝑒𝑛 (id𝑅𝑒𝑛 Δ) σ ⁻¹ ⟩
+      W₁𝑅𝑒𝑛 A (id𝑅𝑒𝑛 Δ) ∘𝑅𝑒𝑛 W₂𝑅𝑒𝑛 A σ
+        ∎
+
+{-_[_]𝐸𝑙-nat : {Γ Δ : Ctx} {A : Ty} (𝓈 : NaturalElement Δ A) (σ : Ren Γ Δ) →
+  NaturalType (fst 𝓈 [ σ ]𝐸𝑙)
+_[_]𝐸𝑙-nat {A = Base c} 𝓈 σ = tt
+_[_]𝐸𝑙-nat {A = A ⇒ B} 𝒻 σ τ 𝓈 =
+  (λ μ →
+    fst 𝒻 (σ ∘𝑅𝑒𝑛 τ) (fst 𝓈) [ μ ]𝐸𝑙
+      ≡⟨ fst ((snd 𝒻) (σ ∘𝑅𝑒𝑛 τ) 𝓈) μ ⟩
+    fst 𝒻 (σ ∘𝑅𝑒𝑛 τ ∘𝑅𝑒𝑛 μ) (fst 𝓈 [ μ ]𝐸𝑙)
+      ≡⟨ ap (λ x → fst 𝒻 x (fst 𝓈 [ μ ]𝐸𝑙)) (∘𝑅𝑒𝑛Assoc σ τ μ) ⟩
+    fst 𝒻 (σ ∘𝑅𝑒𝑛 (τ ∘𝑅𝑒𝑛 μ)) (fst 𝓈 [ μ ]𝐸𝑙)
+      ∎) ,
+    snd ((snd 𝒻) (σ ∘𝑅𝑒𝑛 τ) 𝓈)-}
+
+{-q-hom : {A : Ty} {Γ Δ : Ctx} (σ : Ren Γ Δ) (𝓈 : NaturalElement Δ A) →
+  q (fst 𝓈 [ σ ]𝐸𝑙) ≡ q (fst 𝓈) [ σ ]NF
+u-hom : {A : Ty} {Γ Δ : Ctx} (σ : Ren Γ Δ) (N : Ne Δ A) →
+  u (N [ σ ]NE) ≡ u N [ σ ]𝐸𝑙
+
+q-hom {Base x} σ 𝓈 = refl
+q-hom {A ⇒ B} {Γ} {Δ} σ 𝒻 =
+  LAM (q (fst 𝒻 (σ ∘𝑅𝑒𝑛 W₁𝑅𝑒𝑛 A (id𝑅𝑒𝑛 Γ)) (u (VN 𝑧𝑣))))
+    ≡⟨ ap (λ x → LAM (q (fst 𝒻 x (u-hom (W₂𝑅𝑒𝑛 A σ) (VN 𝑧𝑣) i)))) lem ⟩
+  LAM (q (fst 𝒻 (W₁𝑅𝑒𝑛 A (id𝑅𝑒𝑛 Δ) ∘𝑅𝑒𝑛 W₂𝑅𝑒𝑛 A σ) (u (VN 𝑧𝑣) [ W₂𝑅𝑒𝑛 A σ ]𝐸𝑙)))
+    ≡⟨ {!(λ i → LAM (q (hom 𝒻 (W₂𝑅𝑒𝑛 A σ) (W₁𝑅𝑒𝑛 A (id𝑅𝑒𝑛 Δ)) (u (VN 𝑧𝑣)) (~ i))))!} ⟩
+  LAM (q (fst 𝒻 (W₁𝑅𝑒𝑛 A (id𝑅𝑒𝑛 Δ)) (u (VN 𝑧𝑣)) [ W₂𝑅𝑒𝑛 A σ ]𝐸𝑙))
+    ≡⟨ ap LAM (q-hom (W₂𝑅𝑒𝑛 A σ)
+      (fst 𝒻 (W₁𝑅𝑒𝑛 A (id𝑅𝑒𝑛 Δ)) (u (VN 𝑧𝑣)) , ?)) ⟩
+  LAM (q (fst 𝒻 (W₁𝑅𝑒𝑛 A (id𝑅𝑒𝑛 Δ)) (u (VN 𝑧𝑣))) [ W₂𝑅𝑒𝑛 A σ ]NF)
+    ∎
+     where
+    lem : σ ∘𝑅𝑒𝑛 W₁𝑅𝑒𝑛 A (id𝑅𝑒𝑛 Γ) ≡ W₁𝑅𝑒𝑛 A (id𝑅𝑒𝑛 Δ) ∘𝑅𝑒𝑛 (W₂𝑅𝑒𝑛 A σ)
+    lem =
+      σ ∘𝑅𝑒𝑛 W₁𝑅𝑒𝑛 A (id𝑅𝑒𝑛 Γ)
+        ≡⟨ Wlem3𝑅𝑒𝑛 σ (id𝑅𝑒𝑛 Γ) ⟩
+      W₁𝑅𝑒𝑛 A (σ ∘𝑅𝑒𝑛 id𝑅𝑒𝑛 Γ)
+        ≡⟨ ap (W₁𝑅𝑒𝑛 A) (∘𝑅𝑒𝑛IdR σ) ⟩
+      W₁𝑅𝑒𝑛 A σ
+        ≡⟨ ap (W₁𝑅𝑒𝑛 A) (∘𝑅𝑒𝑛IdL σ ⁻¹) ⟩
+      W₁𝑅𝑒𝑛 A (id𝑅𝑒𝑛 Δ ∘𝑅𝑒𝑛 σ)
+        ≡⟨ Wlem5𝑅𝑒𝑛 (id𝑅𝑒𝑛 Δ) σ ⁻¹ ⟩
+      W₁𝑅𝑒𝑛 A (id𝑅𝑒𝑛 Δ) ∘𝑅𝑒𝑛 W₂𝑅𝑒𝑛 A σ
+        ∎
+
+u-hom {Base x} σ N = refl
+u-hom {A ⇒ B} σ N = {!ap (λ x → u (APP x (q 𝓈))) ([][]NE N σ τ)!}
+
+SafeType : {Γ : Ctx} {A : Ty} (𝓈 : NaturalElement Γ A) → Type lzero
+
+SafeElement : Ctx → Ty → Set
+SafeElement Γ A = Σ (NaturalElement Γ A) SafeType
+
+SafeType {Γ} {Base c} N = ⊤
+SafeType {Γ} {A ⇒ B} 𝒻 =
+  {Δ : Ctx} (σ : Ren Δ Γ) (𝓈 : SafeElement Δ A) →
+    Steps (ιNf (q (fst 𝒻 σ (fst (fst 𝓈)))))
+          (App (ιNf (q (fst 𝒻) [ σ ]NF)) (ιNf (q (fst (fst 𝓈)))))
+      ×  {!SafeType (fst 𝒻 σ (fst (fst 𝓈)))!}-}
+
+{-infix 30 _[_]𝐸𝑙
+_[_]𝐸𝑙 : {Γ Δ : Ctx} {A : Ty} → Element Δ A → Ren Γ Δ → Element Γ A
 _[_]𝐸𝑙 {A = Base x} 𝓈 σ = 𝓈 [ σ ]NF
 _[_]𝐸𝑙 {A = A ⇒ B} 𝒻 σ =
   nat
@@ -46,9 +183,21 @@ _[_]𝐸𝑙 {A = A ⇒ B} 𝒻 σ =
       ob 𝒻 (σ ∘𝑅𝑒𝑛 μ) 𝓈 [ τ ]𝐸𝑙
         ≡⟨ hom 𝒻 τ (σ ∘𝑅𝑒𝑛 μ) 𝓈 ⟩
       ob 𝒻 (σ ∘𝑅𝑒𝑛 μ ∘𝑅𝑒𝑛 τ) (𝓈 [ τ ]𝐸𝑙)
-        ≡⟨ (λ i → ob 𝒻 (∘𝑅𝑒𝑛Assoc σ μ τ i) (𝓈 [ τ ]𝐸𝑙)) ⟩
+        ≡⟨ ap (λ x → ob 𝒻 x (𝓈 [ τ ]𝐸𝑙)) (∘𝑅𝑒𝑛Assoc σ μ τ) ⟩
       ob 𝒻 (σ ∘𝑅𝑒𝑛 (μ ∘𝑅𝑒𝑛 τ)) (𝓈 [ τ ]𝐸𝑙)
         ∎)
+
+q : {Γ : Ctx} {A : Ty} → Element Γ A → Nf Γ A
+u : {Γ : Ctx} {A : Ty} → Ne Γ A → Element Γ A
+
+q {A = Base X} 𝓈 = 𝓈
+q {Γ} {A ⇒ B} 𝒻 = LAM (q (ob 𝒻 (W₁𝑅𝑒𝑛 A (id𝑅𝑒𝑛 Γ)) (u (VN 𝑧𝑣))))-}
+
+
+
+{-postulate
+  ≡Element⇒ : {Γ : Ctx} {A B : Ty} {𝒻 ℊ : Element⇒ Γ A B} →
+    Path ({Δ : Ctx} → Ren Δ Γ → Element Δ A → Element Δ B) (ob 𝒻) (ob ℊ) → 𝒻 ≡ ℊ
 
 [id]𝐸𝑙 : {Γ : Ctx} {A : Ty} (𝓈 : Element Γ A) → 𝓈 [ id𝑅𝑒𝑛 Γ ]𝐸𝑙 ≡ 𝓈
 [id]𝐸𝑙 {Γ} {Base c} N = [id]NF N
@@ -252,13 +401,17 @@ forget[]𝐸𝑙𝑠 : {Γ Δ Σ : Ctx} (𝓈s : SafeElements Δ Σ) (σ :  Ren 
   forget (𝓈s [ σ ]𝐸𝑙𝑠-S) ≡ forget 𝓈s [ σ ]𝐸𝑙𝑠
 forget[]𝐸𝑙𝑠 𝓈s σ = map𝑇𝑚𝑠comp fst _[ σ ]𝐸𝑙-S 𝓈s ∙ map𝑇𝑚𝑠comp _[ σ ]𝐸𝑙 fst 𝓈s ⁻¹ 
 
+{-# TERMINATING #-}
 eval-nat : {Γ : Ctx} {A : Ty} (t : Tm Γ A) {Δ : Ctx} (𝓈s : SafeElements Δ Γ) →
   Steps (ιNf (q (eval-⦇α⦈ t (forget 𝓈s)))) (t [ ιNfs (qs (forget 𝓈s)) ])
 
 eval-⦇α⦈-safe : {Γ Δ : Ctx} {A : Ty} (t : Tm Δ A) (𝓈s : SafeElements Γ Δ) →
   SafeType (eval-⦇α⦈ t (forget 𝓈s))
-eval-⦇α⦈-safe (V v) 𝓈s =
-  transport (λ i → SafeType (deriveMap {tm₂ = Element} fst 𝓈s v (~ i))) (snd (derive 𝓈s v))
+eval-⦇α⦈-safe (V v) 𝓈s = my-derive 𝓈s v where
+  my-derive : {Γ Δ : Ctx} {A : Ty} (𝓈s : SafeElements Γ Δ) (v : Var Δ A) →
+    SafeType (derive (forget 𝓈s) v)
+  my-derive (𝓈s ⊕ 𝓈) 𝑧𝑣 = snd 𝓈
+  my-derive (𝓈s ⊕ 𝓈) (𝑠𝑣 v) = my-derive 𝓈s v
 eval-⦇α⦈-safe (Lam t) 𝓈s σ 𝓉 =
   []
     ∷ sub⟨ (λ i → (ιNf (q (eval-⦇α⦈ t (forget[]𝐸𝑙𝑠 𝓈s σ (~ i) ⊕ fst 𝓉))))) ⟩
@@ -309,7 +462,7 @@ eval-⦇α⦈-safe {Γ} (App t s) 𝓈s =
 eval-nat (V v) 𝓈s =
   [] ∷ sub⟨ (deriveMap ιNf (qs (forget 𝓈s)) v ∙ ap ιNf (deriveMap q (forget 𝓈s) v)) ⁻¹ ⟩
 eval-nat {Γ} {A ⇒ B} (Lam t) {Δ} 𝓈s =
-  {![] ∷
+  [] ∷
     sub⟨
       (λ i → Lam (ιNf (q (eval-⦇α⦈ t (forget[]𝐸𝑙𝑠 𝓈s (W₁𝑅𝑒𝑛 A (id𝑅𝑒𝑛 Δ)) (~ i) ⊕ u (VN 𝑧𝑣)))))) ⟩
     ⊙ deepens (𝐿 𝑂) (eval-nat t (𝓈s [ W₁𝑅𝑒𝑛 A (id𝑅𝑒𝑛 Δ) ]𝐸𝑙𝑠-S ⊕ (u (VN 𝑧𝑣) , u-safe (VN 𝑧𝑣) )))
@@ -325,7 +478,7 @@ eval-nat {Γ} {A ⇒ B} (Lam t) {Δ} 𝓈s =
       Lam (t [ ιNfs (qs (forget 𝓈s)) ∘Tms π ⊕ 𝑧 ])
         ≡⟨ (λ i → Lam (t [ Wlem5 (ιNfs (qs (forget 𝓈s))) i ⊕ 𝑧 ])) ⟩
       Lam (t [ W₂Tms A (ιNfs (qs (forget 𝓈s))) ])
-        ∎ ⟩!}
+        ∎ ⟩
 eval-nat (App t s) 𝓈s =
   fst (eval-⦇α⦈-safe t 𝓈s (id𝑅𝑒𝑛 _) (eval-⦇α⦈ s (forget 𝓈s) , eval-⦇α⦈-safe s 𝓈s))
     ∷ sub⟨ (λ i → (App (ιNf ([id]NF (q (eval-⦇α⦈ t (forget 𝓈s))) i))
@@ -349,46 +502,19 @@ forget-us-S ! = refl
 forget-us-S (NS ⊕ N) i = forget-us-S NS i ⊕ u N
 
 correctness : {Γ : Ctx} {A : Ty} (t : Tm Γ A) →
-  Steps (ιNf (norm t)) t
+  Steps t (ιNf (norm t))
 correctness {Γ} t =
   []
-    ∷ sub⟨ (λ i → ιNf (q (eval-⦇α⦈ t (forget-us-S (idNes Γ) (~ i))))) ⟩
-    ⊙ eval-nat t (us-S (idNes Γ))
-    ∷ sub⟨ (λ i → t [ ιNfs (qs (forget-us-S (idNes Γ) i)) ]) ⟩
-    ⊙ (t [ cmps (idNes Γ) ]𝑆)
     ∷ sub⟨
-      t [ ιNes (idNes Γ) ]
-        ≡⟨ ap (t [_]) (ιidNes Γ) ⟩
-      t [ idTms Γ ]
-        ≡⟨ [id] t ⟩
       t
+        ≡⟨ [id] t ⁻¹ ⟩
+      t [ idTms Γ ]
+        ≡⟨ ap (t [_]) (ιidNes Γ ⁻¹) ⟩
+      t [ ιNes (idNes Γ) ]
         ∎ ⟩
-
--- Tests
-
-ChurchType : Ty → Ty
-ChurchType A = (A ⇒ A) ⇒ A ⇒ A
-
-ChurchBody : {Γ : Ctx} {A : Ty} → ℕ → Tm (Γ ⊹ (A ⇒ A) ⊹ A) A
-ChurchBody Z = (V 𝑧𝑣)
-ChurchBody (S n) = App (V (𝑠𝑣 𝑧𝑣)) (ChurchBody n)
-
-𝐶𝑁𝑢𝑚 : {Γ : Ctx} {A : Ty} → ℕ → Tm Γ (ChurchType A)
-𝐶𝑁𝑢𝑚 n = Lam (Lam (ChurchBody n))
-
-PlusType : Ty → Ty
-PlusType A = ChurchType A ⇒ ChurchType A ⇒ ChurchType A
-
-Plus : {Γ : Ctx} {A : Ty} → Tm Γ (PlusType A)
-Plus = Lam (Lam (Lam (Lam (App (App (V (𝑠𝑣 (𝑠𝑣 (𝑠𝑣 𝑧𝑣)))) (V (𝑠𝑣 𝑧𝑣)))
-                               (App (App (V (𝑠𝑣 (𝑠𝑣 𝑧𝑣))) (V (𝑠𝑣 𝑧𝑣))) (V 𝑧𝑣))))))
-
-𝑃𝑙𝑢𝑠𝐸𝑥𝑝𝑟 : (A : Ty) → ℕ → ℕ → Tm ∅ (ChurchType A)
-𝑃𝑙𝑢𝑠𝐸𝑥𝑝𝑟 A n m = App (App Plus (𝐶𝑁𝑢𝑚 n)) (𝐶𝑁𝑢𝑚 m)
-
-sum = 𝑃𝑙𝑢𝑠𝐸𝑥𝑝𝑟 (Base 'A') 0 0
-
-𝐼𝑑 : (A : Ty) → Tm ∅ (A ⇒ A)
-𝐼𝑑 A = Lam (V 𝑧𝑣)
-
-idA⇒A = 𝐼𝑑 (Base 'A' ⇒ Base 'A')
+    ⊙ invertSteps (t [ cmps (idNes Γ) ]𝑆)
+    ∷ sub⟨ (λ i → t [ ιNfs (qs (forget-us-S (idNes Γ) (~ i))) ]) ⟩
+    ⊙ invertSteps (eval-nat t (us-S (idNes Γ)))
+    ∷ sub⟨ (λ i → ιNf (q (eval-⦇α⦈ t (forget-us-S (idNes Γ) i)))) ⟩-}
+    
+    

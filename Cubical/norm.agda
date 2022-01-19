@@ -3,7 +3,6 @@
 module norm where
 
 open import Cubical.Data.Sigma
-open import Cubical.Data.Nat renaming (zero to Z; suc to S)
 
 open import lists
 open import syn
@@ -252,13 +251,17 @@ forget[]𝐸𝑙𝑠 : {Γ Δ Σ : Ctx} (𝓈s : SafeElements Δ Σ) (σ :  Ren 
   forget (𝓈s [ σ ]𝐸𝑙𝑠-S) ≡ forget 𝓈s [ σ ]𝐸𝑙𝑠
 forget[]𝐸𝑙𝑠 𝓈s σ = map𝑇𝑚𝑠comp fst _[ σ ]𝐸𝑙-S 𝓈s ∙ map𝑇𝑚𝑠comp _[ σ ]𝐸𝑙 fst 𝓈s ⁻¹ 
 
+{-# TERMINATING #-}
 eval-nat : {Γ : Ctx} {A : Ty} (t : Tm Γ A) {Δ : Ctx} (𝓈s : SafeElements Δ Γ) →
   Steps (ιNf (q (eval-⦇α⦈ t (forget 𝓈s)))) (t [ ιNfs (qs (forget 𝓈s)) ])
 
 eval-⦇α⦈-safe : {Γ Δ : Ctx} {A : Ty} (t : Tm Δ A) (𝓈s : SafeElements Γ Δ) →
   SafeType (eval-⦇α⦈ t (forget 𝓈s))
-eval-⦇α⦈-safe (V v) 𝓈s =
-  transport (λ i → SafeType (deriveMap {tm₂ = Element} fst 𝓈s v (~ i))) (snd (derive 𝓈s v))
+eval-⦇α⦈-safe (V v) 𝓈s = my-derive 𝓈s v where
+  my-derive : {Γ Δ : Ctx} {A : Ty} (𝓈s : SafeElements Γ Δ) (v : Var Δ A) →
+    SafeType (derive (forget 𝓈s) v)
+  my-derive (𝓈s ⊕ 𝓈) 𝑧𝑣 = snd 𝓈
+  my-derive (𝓈s ⊕ 𝓈) (𝑠𝑣 v) = my-derive 𝓈s v
 eval-⦇α⦈-safe (Lam t) 𝓈s σ 𝓉 =
   []
     ∷ sub⟨ (λ i → (ιNf (q (eval-⦇α⦈ t (forget[]𝐸𝑙𝑠 𝓈s σ (~ i) ⊕ fst 𝓉))))) ⟩
@@ -349,46 +352,19 @@ forget-us-S ! = refl
 forget-us-S (NS ⊕ N) i = forget-us-S NS i ⊕ u N
 
 correctness : {Γ : Ctx} {A : Ty} (t : Tm Γ A) →
-  Steps (ιNf (norm t)) t
+  Steps t (ιNf (norm t))
 correctness {Γ} t =
   []
-    ∷ sub⟨ (λ i → ιNf (q (eval-⦇α⦈ t (forget-us-S (idNes Γ) (~ i))))) ⟩
-    ⊙ eval-nat t (us-S (idNes Γ))
-    ∷ sub⟨ (λ i → t [ ιNfs (qs (forget-us-S (idNes Γ) i)) ]) ⟩
-    ⊙ (t [ cmps (idNes Γ) ]𝑆)
     ∷ sub⟨
-      t [ ιNes (idNes Γ) ]
-        ≡⟨ ap (t [_]) (ιidNes Γ) ⟩
-      t [ idTms Γ ]
-        ≡⟨ [id] t ⟩
       t
+        ≡⟨ [id] t ⁻¹ ⟩
+      t [ idTms Γ ]
+        ≡⟨ ap (t [_]) (ιidNes Γ ⁻¹) ⟩
+      t [ ιNes (idNes Γ) ]
         ∎ ⟩
-
--- Tests
-
-ChurchType : Ty → Ty
-ChurchType A = (A ⇒ A) ⇒ A ⇒ A
-
-ChurchBody : {Γ : Ctx} {A : Ty} → ℕ → Tm (Γ ⊹ (A ⇒ A) ⊹ A) A
-ChurchBody Z = (V 𝑧𝑣)
-ChurchBody (S n) = App (V (𝑠𝑣 𝑧𝑣)) (ChurchBody n)
-
-𝐶𝑁𝑢𝑚 : {Γ : Ctx} {A : Ty} → ℕ → Tm Γ (ChurchType A)
-𝐶𝑁𝑢𝑚 n = Lam (Lam (ChurchBody n))
-
-PlusType : Ty → Ty
-PlusType A = ChurchType A ⇒ ChurchType A ⇒ ChurchType A
-
-Plus : {Γ : Ctx} {A : Ty} → Tm Γ (PlusType A)
-Plus = Lam (Lam (Lam (Lam (App (App (V (𝑠𝑣 (𝑠𝑣 (𝑠𝑣 𝑧𝑣)))) (V (𝑠𝑣 𝑧𝑣)))
-                               (App (App (V (𝑠𝑣 (𝑠𝑣 𝑧𝑣))) (V (𝑠𝑣 𝑧𝑣))) (V 𝑧𝑣))))))
-
-𝑃𝑙𝑢𝑠𝐸𝑥𝑝𝑟 : (A : Ty) → ℕ → ℕ → Tm ∅ (ChurchType A)
-𝑃𝑙𝑢𝑠𝐸𝑥𝑝𝑟 A n m = App (App Plus (𝐶𝑁𝑢𝑚 n)) (𝐶𝑁𝑢𝑚 m)
-
-sum = 𝑃𝑙𝑢𝑠𝐸𝑥𝑝𝑟 (Base 'A') 0 0
-
-𝐼𝑑 : (A : Ty) → Tm ∅ (A ⇒ A)
-𝐼𝑑 A = Lam (V 𝑧𝑣)
-
-idA⇒A = 𝐼𝑑 (Base 'A' ⇒ Base 'A')
+    ⊙ invertSteps (t [ cmps (idNes Γ) ]𝑆)
+    ∷ sub⟨ (λ i → t [ ιNfs (qs (forget-us-S (idNes Γ) (~ i))) ]) ⟩
+    ⊙ invertSteps (eval-nat t (us-S (idNes Γ)))
+    ∷ sub⟨ (λ i → ιNf (q (eval-⦇α⦈ t (forget-us-S (idNes Γ) i)))) ⟩
+    
+    
