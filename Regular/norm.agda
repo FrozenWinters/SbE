@@ -10,14 +10,11 @@ open import trace
 data ⊤ : Type lzero where
   tt : ⊤
 
+-- We bootstrap the definition of the semantic presheaves
+
 Element : Ctx → Ty → Type lzero
 Element Γ (Base X) = Nf Γ (Base X)
 Element Γ (A ⇒ B) = {Δ : Ctx} → Ren Δ Γ → Element Δ A → Element Δ B
-
-infix 30 _[_]𝐸𝑙
-_[_]𝐸𝑙 : {Γ Δ : Ctx} {A : Ty} → Element Δ A → Ren Γ Δ → Element Γ A
-_[_]𝐸𝑙 {A = Base x} 𝓈 σ = 𝓈 [ σ ]NF
-_[_]𝐸𝑙 {A = A ⇒ B} 𝒻 σ τ 𝓈 = 𝒻 (σ ∘𝑅𝑒𝑛 τ) 𝓈
 
 q : {Γ : Ctx} {A : Ty} → Element Γ A → Nf Γ A
 u : {Γ : Ctx} {A : Ty} → Ne Γ A → Element Γ A
@@ -28,9 +25,9 @@ q {Γ} {A ⇒ B} 𝒻 = LAM (q (𝒻 (W₁𝑅𝑒𝑛 A (id𝑅𝑒𝑛 Γ)) (u
 u {A = Base X} M = NEU M
 u {A = A ⇒ B} M σ 𝓈 = u (APP (M [ σ ]NE) (q 𝓈))
 
-cmp : {Γ : Ctx} {A : Ty} (N : Ne Γ A) → Steps (ιNf (q (u N))) (ιNe N)
-cmp {A = Base s} N = []
-cmp {Γ} {A ⇒ B} N =
+comp : {Γ : Ctx} {A : Ty} (N : Ne Γ A) → Steps (ιNf (q (u N))) (ιNe N)
+comp {A = Base s} N = []
+comp {Γ} {A ⇒ B} N =
   tr (λ t → Steps (Lam (ιNf (q (u (APP (N [ W₁𝑅𝑒𝑛 A (id𝑅𝑒𝑛 Γ) ]NE) (q (u (VN 𝑧𝑣)))))))) t)
     (Lam (App (ιNe (N [ W₁𝑅𝑒𝑛 A (id𝑅𝑒𝑛 Γ) ]NE)) (V 𝑧𝑣))
       ≡⟨ ap (λ x → Lam (App x (V 𝑧𝑣))) (ιNeLem N (W₁𝑅𝑒𝑛 A (id𝑅𝑒𝑛 Γ))) ⟩
@@ -38,58 +35,106 @@ cmp {Γ} {A ⇒ B} N =
       ≡⟨ ap (λ x → Lam (App x (V 𝑧𝑣))) (Wlem5 (ιNe N)) ⟩
     Lam (App (W₁Tm A (ιNe N)) (V 𝑧𝑣))
       ∎)
-    (deepens (𝐿 𝑂) (cmp (APP (N [ W₁𝑅𝑒𝑛 A (id𝑅𝑒𝑛 Γ) ]NE) (q (u (VN 𝑧𝑣)))))
-      ⊙ deepens (𝐿 (𝐴₂ (ιNe (N [ W₁𝑅𝑒𝑛 A (id𝑅𝑒𝑛 Γ) ]NE)) 𝑂)) (cmp (VN 𝑧𝑣)))
+    (deepens (𝐿 𝑂) (comp (APP (N [ W₁𝑅𝑒𝑛 A (id𝑅𝑒𝑛 Γ) ]NE) (q (u (VN 𝑧𝑣)))))
+      ⊙ deepens (𝐿 (𝐴₂ (ιNe (N [ W₁𝑅𝑒𝑛 A (id𝑅𝑒𝑛 Γ) ]NE)) 𝑂)) (comp (VN 𝑧𝑣)))
   ∷ ⟨ 𝑂 ⊚ η (ιNe N) ⟩⁻¹
 
-{-NaturalType : {Γ : Ctx} {A : Ty} (𝓈 : Element Γ A) → Type lzero
+infix 30 _[_]𝐸𝑙
+_[_]𝐸𝑙 : {Γ Δ : Ctx} {A : Ty} → Element Δ A → Ren Γ Δ → Element Γ A
+_[_]𝐸𝑙 {A = Base x} 𝓈 σ = 𝓈 [ σ ]NF
+_[_]𝐸𝑙 {A = A ⇒ B} 𝒻 σ τ 𝓈 = 𝒻 (σ ∘𝑅𝑒𝑛 τ) 𝓈
 
-NaturalElement : Ctx → Ty → Type lzero
-NaturalElement Γ A = Σ (Element Γ A) NaturalType
-
-NaturalType {Γ} {Base c} 𝓈 = ⊤
-NaturalType {Γ} {A ⇒ B} 𝒻 =
-  {Δ : Ctx} (σ : Ren Δ Γ) (𝓈 : NaturalElement Δ A) →
-    ({Σ : Ctx} (τ : Ren Σ Δ) → 𝒻 σ (fst 𝓈) [ τ ]𝐸𝑙 ≡ 𝒻 (σ ∘𝑅𝑒𝑛 τ) (fst 𝓈 [ τ ]𝐸𝑙))
-    × NaturalType (𝒻 σ (fst 𝓈))-}
+-- First we add preservation of extensional equality
 
 _≡𝐸𝑙_ : {Γ : Ctx} {A : Ty} (𝓈 𝓉 : Element Γ A) → Type lzero
 _≡𝐸𝑙_ {Γ} {Base c} N M = N ≡ M
 _≡𝐸𝑙_ {Γ} {A ⇒ B} 𝒻 ℊ = {Δ : Ctx} (σ : Ren Δ Γ) (𝓈 : Element Δ A) → 𝒻 σ 𝓈 ≡ ℊ σ 𝓈
 
-SafeType : {Γ : Ctx} {A : Ty} (𝓈 : Element Γ A) → Type lzero
+_⁻¹𝐸𝑙 : {Γ : Ctx} {A : Ty} {𝓈 𝓉 : Element Γ A} → 𝓈 ≡𝐸𝑙 𝓉 → 𝓉 ≡𝐸𝑙 𝓈
+_⁻¹𝐸𝑙 {A = Base c} a = a ⁻¹
+_⁻¹𝐸𝑙 {A = A ⇒ B} a σ 𝓈 = a σ 𝓈 ⁻¹
 
-SafeElement : Ctx → Ty → Type lzero
-SafeElement Γ A = Σ (Element Γ A) SafeType
+ExtensionalType : {Γ : Ctx} {A : Ty} → Element Γ A → Type lzero
 
-{-# NO_POSITIVITY_CHECK #-}
-record SafeType⇒ {Γ Δ : Ctx} {A B : Ty} (𝒻 : Element Γ (A ⇒ B)) (σ : Ren Δ Γ) (𝓈 : SafeElement Δ A)
-       : Type lzero where
-  inductive
-  field
-    ext : (𝓉 : SafeElement Δ A) → fst 𝓈 ≡𝐸𝑙 fst 𝓉 → 𝒻 σ (fst 𝓈) ≡ 𝒻 σ (fst 𝓉)
-    hom : {Σ : Ctx} (τ : Ren Σ Δ) → 𝒻 σ (fst 𝓈) [ τ ]𝐸𝑙 ≡𝐸𝑙 𝒻 (σ ∘𝑅𝑒𝑛 τ) (fst 𝓈 [ τ ]𝐸𝑙)
-    nat : Steps (ιNf (q (𝒻 σ (fst 𝓈)))) (App (ιNf (q 𝒻 [ σ ]NF)) (ιNf (q (fst 𝓈))))
-    preserve : SafeType (𝒻 σ (fst 𝓈))
+ExtensionalElement : Ctx → Ty → Type lzero
+ExtensionalElement Γ A = Σ (Element Γ A) ExtensionalType
 
-SafeType {Γ} {Base c} 𝓈 = ⊤
-SafeType {Γ} {A ⇒ B} 𝒻 =
-  {Δ : Ctx} (σ : Ren Δ Γ) (𝓈 : SafeElement Δ A) → SafeType⇒ 𝒻 σ 𝓈
-    {-({Σ : Ctx} (τ : Ren Σ Δ) → 𝒻 σ (fst 𝓈) [ τ ]𝐸𝑙 ≡𝐸𝑙 𝒻 (σ ∘𝑅𝑒𝑛 τ) (fst 𝓈 [ τ ]𝐸𝑙))
-    × Steps (ιNf (q (𝒻 σ (fst 𝓈))))
-          (App (ιNf (q 𝒻 [ σ ]NF)) (ιNf (q (fst 𝓈))))
-    × SafeType (𝒻 σ (fst 𝓈))-}
+ExtensionalType {Γ} {Base c} N = ⊤
+ExtensionalType {Γ} {A ⇒ B} 𝒻 =
+  {Δ : Ctx} (σ : Ren Δ Γ) (𝓈 𝓉 : ExtensionalElement Δ A) →
+    fst 𝓈 ≡𝐸𝑙 fst 𝓉 → 𝒻 σ (fst 𝓈) ≡ 𝒻 σ (fst 𝓉)
 
-u-hom : {A : Ty} {Γ Δ : Ctx} (σ : Ren Γ Δ) (N : Ne Δ A) →
+q-ext : {Γ : Ctx} {A : Ty} {𝓈 𝓉 : Element Γ A} → 𝓈 ≡𝐸𝑙 𝓉 → q 𝓈 ≡ q 𝓉
+q-ext {Γ} {Base c} a = a
+q-ext {Γ} {A ⇒ B} a = ap (LAM ∘ q) (a (W₁𝑅𝑒𝑛 A (id𝑅𝑒𝑛 Γ)) (u (VN 𝑧𝑣)))
+
+u-ext : {Γ : Ctx} {A : Ty} (N : Ne Γ A) → ExtensionalType (u N)
+u-ext {Γ} {Base c} N = tt
+u-ext {Γ} {A ⇒ B} N σ 𝓈 𝓉 a = ap (λ x → u (APP (N [ σ ]NE) x)) (q-ext a)
+
+_[_]𝐸𝑙-ext : {Γ Δ : Ctx} {A : Ty} (𝓈 : ExtensionalElement Δ A) (σ : Ren Γ Δ) →
+  ExtensionalType (fst 𝓈 [ σ ]𝐸𝑙)
+_[_]𝐸𝑙-ext {A = Base c} 𝓈 σ = tt
+_[_]𝐸𝑙-ext {A = A ⇒ B} 𝓈 σ τ 𝓉₁ 𝓉₂ a = snd 𝓈 (σ ∘𝑅𝑒𝑛 τ) 𝓉₁ 𝓉₂ a
+
+u-𝑒 : {Γ : Ctx} {A : Ty} → Ne Γ A → ExtensionalElement Γ A
+u-𝑒 N = u N , u-ext N
+
+_[_]𝐸𝑙-𝑒 : {Γ Δ : Ctx} {A : Ty} → ExtensionalElement Δ A → Ren Γ Δ → ExtensionalElement Γ A
+𝓈 [ σ ]𝐸𝑙-𝑒 = fst 𝓈 [ σ ]𝐸𝑙 , 𝓈 [ σ ]𝐸𝑙-ext
+
+-- Next we add naturality
+
+NaturalType : {Γ : Ctx} {A : Ty} → ExtensionalElement Γ A → Type lzero
+
+NaturalElement : Ctx → Ty → Type lzero
+NaturalElement Γ A = Σ (Element Γ A) (λ 𝓈 → Σ (ExtensionalType 𝓈) (λ p → NaturalType (𝓈 , p)))
+
+NaturalType {Γ} {Base c} N = ⊤
+NaturalType {Γ} {A ⇒ B} 𝒻 =
+  {Δ : Ctx} (σ : Ren Δ Γ) (𝓈 : NaturalElement Δ A) →
+    {Σ : Ctx} (τ : Ren Σ Δ) → (fst 𝒻) σ (fst 𝓈) [ τ ]𝐸𝑙 ≡𝐸𝑙 (fst 𝒻) (σ ∘𝑅𝑒𝑛 τ) (fst 𝓈 [ τ ]𝐸𝑙)
+
+u-nat : {A : Ty} {Γ Δ : Ctx} (σ : Ren Γ Δ) (N : Ne Δ A) →
   u (N [ σ ]NE) ≡𝐸𝑙 u N [ σ ]𝐸𝑙
-u-hom {Base x} σ N = refl
-u-hom {A ⇒ B} σ N τ 𝓈 = ap (λ x → u (APP x (q 𝓈))) ([][]NE N σ τ)
-
-q-hom : {A : Ty} {Γ Δ : Ctx} (σ : Ren Γ Δ) (𝓈 : SafeElement Δ A) →
+q-nat : {A : Ty} {Γ Δ : Ctx} (σ : Ren Γ Δ) (𝓈 : NaturalElement Δ A) →
   q (fst 𝓈 [ σ ]𝐸𝑙) ≡ q (fst 𝓈) [ σ ]NF
-q-hom {Base x} σ 𝓈 = refl
-q-hom {A ⇒ B} {Γ} {Δ} σ 𝒻 =
-  {!(u-hom (W₂𝑅𝑒𝑛 A σ) (VN 𝑧𝑣))
+
+
+u-nat {Base x} σ N = refl
+u-nat {A ⇒ B} σ N τ 𝓈 = ap (λ x → u (APP x (q 𝓈))) ([][]NE N σ τ)
+
+u-hom : {Γ : Ctx} {A : Ty} (N : Ne Γ A) → NaturalType (u-𝑒 N)
+u-hom {Γ} {Base c} M = tt
+u-hom {Γ} {A ⇒ B} M σ 𝓈 τ =
+  tr (λ x → u (APP (M [ σ ]NE) (q (fst 𝓈))) [ τ ]𝐸𝑙 ≡𝐸𝑙 x)
+    (u (APP (M [ σ ]NE [ τ ]NE) (q (fst 𝓈) [ τ ]NF))
+      ≡⟨ ap (λ x → u (APP x (q (fst 𝓈) [ τ ]NF))) ([][]NE M σ τ) ⟩
+    u (APP (M [ σ ∘𝑅𝑒𝑛 τ ]NE) (q (fst 𝓈) [ τ ]NF))
+      ≡⟨ ap (u ∘ APP (M [ σ ∘𝑅𝑒𝑛 τ ]NE)) (q-nat τ 𝓈 ⁻¹) ⟩
+    u (APP (M [ σ ∘𝑅𝑒𝑛 τ ]NE) (q (fst 𝓈 [ τ ]𝐸𝑙)))
+      ∎)
+    (u-nat τ (APP (M [ σ ]NE) (q (fst 𝓈))) ⁻¹𝐸𝑙)
+
+u-𝑛 : {Γ : Ctx} {A : Ty} → Ne Γ A → NaturalElement Γ A
+u-𝑛 M = u M , u-ext M , u-hom M
+
+{-# TERMINATING #-}
+q-nat {Base x} σ 𝓈 = refl
+q-nat {A ⇒ B} {Γ} {Δ} σ 𝒻 =
+  {!q-nat (W₂𝑅𝑒𝑛 A σ)
+  {-LAM (q (fst 𝒻 (σ ∘𝑅𝑒𝑛 W₁𝑅𝑒𝑛 A (id𝑅𝑒𝑛 Γ)) (u (VN 𝑧𝑣))))
+    ≡⟨ ap (LAM ∘ q) (fst (snd 𝒻) (σ ∘𝑅𝑒𝑛 W₁𝑅𝑒𝑛 A (id𝑅𝑒𝑛 Γ)) (u-𝑒 (VN 𝑧𝑣))
+      (u-𝑒 (VN 𝑧𝑣) [ W₂𝑅𝑒𝑛 A σ ]𝐸𝑙-𝑒) (u-nat (W₂𝑅𝑒𝑛 A σ) (VN 𝑧𝑣))) ⟩
+  LAM (q (fst 𝒻 (σ ∘𝑅𝑒𝑛 W₁𝑅𝑒𝑛 A (id𝑅𝑒𝑛 Γ)) (u (VN 𝑧𝑣) [ W₂𝑅𝑒𝑛 A σ ]𝐸𝑙)))
+    ≡⟨ ap (λ x → LAM (q (fst 𝒻 x (u (VN 𝑧𝑣) [ W₂𝑅𝑒𝑛 A σ ]𝐸𝑙)))) lem ⟩
+  LAM (q (fst 𝒻 (W₁𝑅𝑒𝑛 A (id𝑅𝑒𝑛 Δ) ∘𝑅𝑒𝑛 W₂𝑅𝑒𝑛 A σ) (u (VN 𝑧𝑣) [ W₂𝑅𝑒𝑛 A σ ]𝐸𝑙)))
+    ≡⟨ ap LAM (q-ext (snd (snd 𝒻) (W₁𝑅𝑒𝑛 A (id𝑅𝑒𝑛 Δ)) (u-𝑛 (VN 𝑧𝑣)) (W₂𝑅𝑒𝑛 A σ)) ⁻¹) ⟩
+  LAM (q (fst 𝒻 (W₁𝑅𝑒𝑛 A (id𝑅𝑒𝑛 Δ)) (u (VN 𝑧𝑣)) [ W₂𝑅𝑒𝑛 A σ ]𝐸𝑙))
+    ≡⟨ 
+    ∎-}
+  --u-hom (W₂𝑅𝑒𝑛 A σ) (VN 𝑧𝑣)
+  --snd 𝒻 (σ ∘𝑅𝑒𝑛 W₁𝑅𝑒𝑛 A (id𝑅𝑒𝑛 Γ)) (u (VN 𝑧𝑣)) --(u-hom (W₂𝑅𝑒𝑛 A σ) (VN 𝑧𝑣))
   {-LAM (q (fst 𝒻 (σ ∘𝑅𝑒𝑛 W₁𝑅𝑒𝑛 A (id𝑅𝑒𝑛 Γ)) (u (VN 𝑧𝑣))))
     ∎-}
   {-LAM (q (fst 𝒻 (σ ∘𝑅𝑒𝑛 W₁𝑅𝑒𝑛 A (id𝑅𝑒𝑛 Γ)) (u (VN 𝑧𝑣))))
@@ -114,6 +159,37 @@ q-hom {A ⇒ B} {Γ} {Δ} σ 𝒻 =
         ≡⟨ Wlem5𝑅𝑒𝑛 (id𝑅𝑒𝑛 Δ) σ ⁻¹ ⟩
       W₁𝑅𝑒𝑛 A (id𝑅𝑒𝑛 Δ) ∘𝑅𝑒𝑛 W₂𝑅𝑒𝑛 A σ
         ∎
+
+
+{-NaturalType : {Γ : Ctx} {A : Ty} (𝓈 : Element Γ A) → Type lzero
+
+NaturalElement : Ctx → Ty → Type lzero
+NaturalElement Γ A = Σ (Element Γ A) NaturalType
+
+NaturalType {Γ} {Base c} 𝓈 = ⊤
+NaturalType {Γ} {A ⇒ B} 𝒻 =
+  {Δ : Ctx} (σ : Ren Δ Γ) (𝓈 : NaturalElement Δ A) →
+    ({Σ : Ctx} (τ : Ren Σ Δ) → 𝒻 σ (fst 𝓈) [ τ ]𝐸𝑙 ≡ 𝒻 (σ ∘𝑅𝑒𝑛 τ) (fst 𝓈 [ τ ]𝐸𝑙))
+    × NaturalType (𝒻 σ (fst 𝓈))-}
+
+SafeType : {Γ : Ctx} {A : Ty} (𝓈 : Element Γ A) → Type lzero
+
+SafeElement : Ctx → Ty → Type lzero
+SafeElement Γ A = Σ (Element Γ A) SafeType
+
+{-# NO_POSITIVITY_CHECK #-}
+record SafeType⇒ {Γ Δ : Ctx} {A B : Ty} (𝒻 : Element Γ (A ⇒ B)) (σ : Ren Δ Γ) (𝓈 : SafeElement Δ A)
+       : Type lzero where
+  inductive
+  field
+    ext : {𝓉 : SafeElement Δ A} → fst 𝓈 ≡𝐸𝑙 fst 𝓉 → 𝒻 σ (fst 𝓈) ≡ 𝒻 σ (fst 𝓉)
+    hom : {Σ : Ctx} (τ : Ren Σ Δ) → 𝒻 σ (fst 𝓈) [ τ ]𝐸𝑙 ≡𝐸𝑙 𝒻 (σ ∘𝑅𝑒𝑛 τ) (fst 𝓈 [ τ ]𝐸𝑙)
+    app : Steps (ιNf (q (𝒻 σ (fst 𝓈)))) (App (ιNf (q 𝒻 [ σ ]NF)) (ιNf (q (fst 𝓈))))
+    pres : SafeType (𝒻 σ (fst 𝓈))
+
+SafeType {Γ} {Base c} 𝓈 = ⊤
+SafeType {Γ} {A ⇒ B} 𝒻 =
+  {Δ : Ctx} (σ : Ren Δ Γ) (𝓈 : SafeElement Δ A) → SafeType⇒ 𝒻 σ 𝓈
 
 {-_[_]𝐸𝑙-nat : {Γ Δ : Ctx} {A : Ty} (𝓈 : NaturalElement Δ A) (σ : Ren Γ Δ) →
   NaturalType (fst 𝓈 [ σ ]𝐸𝑙)
