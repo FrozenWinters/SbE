@@ -2,7 +2,7 @@ module lists where
 
 open import Agda.Primitive using (Level; lzero; lsuc; _⊔_) public
 open import Relation.Binary.PropositionalEquality
-  renaming (cong to ap; sym to _⁻¹; subst to tr) hiding ([_]) public
+  renaming (cong to ap ; sym to _⁻¹ ; trans to _∙_ ; subst to tr) hiding ([_]) public
 open ≡-Reasoning public
 open import Function public
 

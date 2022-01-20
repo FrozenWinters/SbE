@@ -80,6 +80,10 @@ deepens : {Γ : Ctx} {A : Ty} (env : Occurrence Γ A) {t s : Tm (O-Γ env) (O-A 
 deepens env [] = []
 deepens env (𝒮s ∷ 𝒮) = deepens env 𝒮s ∷ deepen env 𝒮
 
+infixl 20 _∷≡_
+_∷≡_ : {Γ : Ctx} {A : Ty} {t s r : Tm Γ A} → Steps t s → s ≡ r → Steps t r
+𝒮s ∷≡ refl = 𝒮s
+
 infixl 20 _⊙_
 _⊙_ : {Γ : Ctx} {A : Ty} {t s u : Tm Γ A} → Steps t s → Steps s u → Steps t u
 𝒮s ⊙ [] = 𝒮s
