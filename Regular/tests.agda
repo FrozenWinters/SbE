@@ -4,6 +4,7 @@ open import lists
 open import syn
 open import trace
 open import norm
+open import print
 
 open import Data.Nat renaming (zero to Z; suc to S)
 
@@ -36,8 +37,8 @@ idA⇒A = 𝐼𝑑 (Base 'A' ⇒ Base 'A')
 
 idA = 𝐼𝑑 (Base 'A')
 
-test1 = correctness idA⇒A
+test1 = trace idA⇒A
 
-test2 = correctness (App idA⇒A idA)
+test2 = trace (App idA⇒A idA)
 
-test3 = correctness sum
+test3 = trace sum

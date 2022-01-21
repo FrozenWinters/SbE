@@ -400,9 +400,9 @@ forget-us-S : {Γ Δ : Ctx} (NS : Nes Γ Δ) →
 forget-us-S ! = refl
 forget-us-S (NS ⊕ N) = ap (_⊕ u N) (forget-us-S NS)
 
-correctness : {Γ : Ctx} {A : Ty} (t : Tm Γ A) →
+trace : {Γ : Ctx} {A : Ty} (t : Tm Γ A) →
   Steps t (ιNf (norm t))
-correctness {Γ} t =
+trace {Γ} t =
   []
     ∷≡
       (t
