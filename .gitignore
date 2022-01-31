@@ -1,5 +1,5 @@
 *.agdai
-*/MAlonzo/**
-*/compile
+MAlonzo/**
+compile
 *~
 .DS_Store

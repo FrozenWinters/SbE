@@ -7,6 +7,8 @@ open import tests
 
 open import IO
 
+my-test = test3
+
 main : Main
-main = run (putStrLn (format-steps test3))
+main = run (putStrLn (format-steps my-test))
 
