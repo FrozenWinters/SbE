@@ -5,7 +5,7 @@
 Normalisation by Evaluation is considered a *reduction-free* approach to normalisation and is to be thought
 of as antithetical to the operational semantics approach of repeatedly reducing a term until it normalises.
 This project extends NbE to produce correctness proofs that `ιNf (norm t)` is related to `t` by way
-of a **computational trace** in terms of β and ε laws.
+of a **computational trace** in terms of β and η laws.
 
 For example, here is the trace that eta expands the identity function:
 ```
